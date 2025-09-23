@@ -21,7 +21,7 @@ clear_loop:
     j clear_loop
 
 jump_main:
-    call start
+    call main
 
 spin:
     j spin                  # 死循环

@@ -3,10 +3,10 @@ CC = riscv64-linux-gnu-gcc
 LD = riscv64-linux-gnu-ld
 OBJCOPY = riscv64-linux-gnu-objcopy
 
-CFLAGS = -Wall -Werror -O2 -fno-common -fno-builtin -nostdlib -mcmodel=medany
+CFLAGS = -Wall -Werror -O2 -fno-common -fno-builtin -nostdlib -mcmodel=medany -I./include
 LDFLAGS = -T kernel/kernel.ld -nostdlib
 
-OBJS = kernel/entry.o kernel/main.o kernel/uart.o
+OBJS = kernel/entry.o kernel/main.o kernel/uart.o kernel/printf.o kernel/console.o
 
 kernel.elf: $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
@@ -18,6 +18,12 @@ kernel/main.o: kernel/main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 kernel/uart.o: kernel/uart.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/printf.o: kernel/printf.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/console.o: kernel/console.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: kernel.elf
