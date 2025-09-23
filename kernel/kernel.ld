@@ -8,6 +8,7 @@ SECTIONS
     .text : {
         *(.text.entry)
         *(.text .text.*)
+        etext = .;
     }
 
     .rodata : {
@@ -25,6 +26,7 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
         _bss_end = .;
+        end = .;
     }
 
     . = ALIGN(16);

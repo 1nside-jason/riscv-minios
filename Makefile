@@ -6,7 +6,9 @@ OBJCOPY = riscv64-linux-gnu-objcopy
 CFLAGS = -Wall -Werror -O2 -fno-common -fno-builtin -nostdlib -mcmodel=medany -I./include
 LDFLAGS = -T kernel/kernel.ld -nostdlib
 
-OBJS = kernel/entry.o kernel/main.o kernel/uart.o kernel/printf.o kernel/console.o
+OBJS = kernel/entry.o kernel/main.o kernel/uart.o kernel/printf.o kernel/console.o \
+       kernel/mm/pmm.o kernel/mm/vm.o
+
 
 kernel.elf: $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
