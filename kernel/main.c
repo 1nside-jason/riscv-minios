@@ -6,6 +6,7 @@ void uart_puts(char *s);
 #include "mm/pmm.h"
 #include "mm/vm.h"
 #include <assert.h>
+#include "trap/trap.h"
 
 void test_printf_basic() {
     printf("Testing integer: %d\n", 42);
@@ -94,6 +95,18 @@ int main() {
     // 初始化并启用内核页表
     kvminit();
     kvminithart();
+    
+
+        // 启用中断系统
+    trap_init();
+
+    printf("\n✅ Interrupt system enabled! Waiting for timer ticks...\n");
+
+    // 主循环：等待中断
+    while(1) {
+        // 可以在这里做其他事情
+        // 中断会异步触发
+    }
 
     printf("\n✅ Virtual memory enabled successfully!\n");
     printf("Testing post-paging functionality...\n");

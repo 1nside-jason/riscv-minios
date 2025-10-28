@@ -7,7 +7,8 @@ CFLAGS = -Wall -Werror -O2 -fno-common -fno-builtin -nostdlib -mcmodel=medany -I
 LDFLAGS = -T kernel/kernel.ld -nostdlib
 
 OBJS = kernel/entry.o kernel/main.o kernel/uart.o kernel/printf.o kernel/console.o \
-       kernel/mm/pmm.o kernel/mm/vm.o
+       kernel/mm/pmm.o kernel/mm/vm.o  \
+       kernel/trap/trap.o kernel/trap/trapvec.o
 
 
 kernel.elf: $(OBJS)
@@ -26,6 +27,11 @@ kernel/printf.o: kernel/printf.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 kernel/console.o: kernel/console.c
+	$(CC) $(CFLAGS) -c $< -o $@
+kernel/trap/trap.o: kernel/trap/trap.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/trap/trapvec.o: kernel/trap/trapvec.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: kernel.elf
