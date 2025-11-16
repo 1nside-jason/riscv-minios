@@ -2,6 +2,9 @@
 #ifndef __TRAP_H__
 #define __TRAP_H__
 
+#include <stdint.h>          // ✅ 必须包含！定义 uint64_t 等类型
+#include "riscv.h"           // 可选，但建议保留（如果你在 trap.h 中用到 CSR）
+
 //声明汇编中定义的符号
 extern void kernelvec(void);
 

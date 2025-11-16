@@ -2,6 +2,7 @@
 #include "riscv.h"
 #include "printf.h"
 #include "trap/trap.h"
+#include "proc/proc.h"
 
 // 全局变量：记录时钟中断次数
 volatile int timer_ticks = 0;
@@ -28,28 +29,25 @@ void kerneltrap(void) {
     uint64_t scause = r_scause();
     uint64_t sepc = r_sepc();
 
-    // 判断是否为时钟中断（scause = 5）
     if (scause == 5) {
         timer_ticks++;
-        // 设置下次中断：每 1000000 周期一次（QEMU 默认频率）
         sbi_set_timer(r_time() + 1000000);
 
-        // 简单调度：每 5 次中断切换一次输出颜色
-        if (timer_ticks % 5 == 0) {
-            printf("\n⏰ Timer tick %d - ", timer_ticks);
-            if (timer_ticks % 10 == 0) {
-                printf("Switching to RED output\n");
-                // 这里可以设置全局状态，影响后续输出
+        if (timer_ticks % 10 == 0) {
+            // ✅ 修复：不能对三元表达式取地址，改用 if-else
+            struct context *old_ctx;
+            if (current_proc) {
+                old_ctx = &current_proc->context;
             } else {
-                printf("Switching to GREEN output\n");
+                old_ctx = &proc[0].context;  // idle context
             }
+            swtch(old_ctx, &proc[0].context);  // 切换到调度器上下文
         }
     } else {
         printf("Unexpected trap: scause=0x%lx sepc=0x%lx\n", scause, sepc);
-        while(1); // 死循环
+        while(1);
     }
 
-    // 更新 sepc（如果需要）
     w_sepc(sepc);
 }
 

@@ -7,6 +7,44 @@ void uart_puts(char *s);
 #include "mm/vm.h"
 #include <assert.h>
 #include "trap/trap.h"
+#include "proc/proc.h"
+
+// 测试任务1
+void task1(void) {
+    int count = 0;
+    while (1) {
+        printf("Task1 [%d]: tick %d\n", current_proc ? current_proc->pid : -1, count++);
+        if (count > 10) {
+            exit_process(0);
+        }
+        // 模拟工作负载
+        for (volatile int i = 0; i < 500000; i++);
+    }
+}
+
+// 测试任务2
+void task2(void) {
+    int count = 0;
+    while (1) {
+        printf("Task2 [%d]: tick %d\n", current_proc ? current_proc->pid : -1, count++);
+        if (count > 10) {
+            exit_process(0);
+        }
+        for (volatile int i = 0; i < 600000; i++);
+    }
+}
+
+// 测试任务3（可选）
+void task3(void) {
+    int count = 0;
+    while (1) {
+        printf("Task3 [%d]: tick %d\n", current_proc ? current_proc->pid : -1, count++);
+        if (count > 5) {
+            exit_process(0);
+        }
+        for (volatile int i = 0; i < 700000; i++);
+    }
+}
 
 void test_printf_basic() {
     printf("Testing integer: %d\n", 42);
@@ -32,17 +70,20 @@ void test_physical_memory(void) {
     void *page2 = alloc_page();
 
     if (!(page1 != page2)) {
-    printf("Assertion failed: page1 != page2\n");
-    while(1); // 死循环
+        printf("Assertion failed: page1 != page2\n");
+        while(1);
     }
 
     if (!(((uint64_t)page1 & 0xFFF) == 0)) {
-    printf("Assertion failed: page1 not page aligned\n");
-    while(1);
-}
+        printf("Assertion failed: page1 not page aligned\n");
+        while(1);
+    }
 
     *(int*)page1 = 0x12345678;
-    assert(*(int*)page1 == 0x12345678);
+    if (*(int*)page1 != 0x12345678) {
+        printf("Memory write test failed\n");
+        while(1);
+    }
 
     free_page(page1);
     free_page(page2);
@@ -55,67 +96,65 @@ void test_pagetable(void) {
 
     uint64_t va = 0x1000000;
     uint64_t pa = (uint64_t)alloc_page();
- 
-   if (map_page(pt, va, pa, PTE_R | PTE_W) != 0) {
-    printf("Assertion failed: map_page failed\n");
-    while(1);
-}
+
+    if (map_page(pt, va, pa, PTE_R | PTE_W) != 0) {
+        printf("Assertion failed: map_page failed\n");
+        while(1);
+    }
 
     printf("Page table contents:\n");
-    dump_pagetable(pt, 2);  // 2 表示从根开始打印
+    dump_pagetable(pt, 2);
 
     destroy_pagetable(pt);
     printf("✅ Page table test passed\n");
 }
 
-
-// ✅ 修改：返回 int，虽然我们不使用返回值
 int main() {
-    uart_init();  // 初始化 UART
+    uart_init();
+    clear_screen();
+    goto_xy(5, 3);
+    set_color(32); // 绿色
+    printf("🚀 RISC-V MiniOS - Process & Scheduling Lab\n");
+    reset_color();
 
-    clear_screen();      // 清屏
-    goto_xy(10, 5);      // 光标定位到第5行第10列
-    set_color(31);       // 设置红色前景
-    printf("🌟 Welcome to RISC-V MiniOS 🌟\n");
-    reset_color();       // 重置颜色
-
+    // 基础测试
     test_printf_basic();
     test_printf_edge_cases();
 
-
-    // 初始化物理内存管理器
+    // 内存与页表初始化
     pmm_init();
-
-    // 测试物理内存分配器
     test_physical_memory();
-
-    // 测试页表功能
     test_pagetable();
 
-    // 初始化并启用内核页表
     kvminit();
     kvminithart();
-    
 
-        // 启用中断系统
+    // 中断系统初始化
     trap_init();
 
-    printf("\n✅ Interrupt system enabled! Waiting for timer ticks...\n");
+    // ✅ 关键：初始化进程系统
+    proc_init();
 
-    // 主循环：等待中断
-    while(1) {
-        // 可以在这里做其他事情
-        // 中断会异步触发
+    printf("\n✅ Creating processes...\n");
+
+    // ✅ 创建多个进程
+    if (create_process(task1) <= 0) {
+        printf("Failed to create task1\n");
+    }
+    if (create_process(task2) <= 0) {
+        printf("Failed to create task2\n");
+    }
+    if (create_process(task3) <= 0) {
+        printf("Failed to create task3\n");
     }
 
-    printf("\n✅ Virtual memory enabled successfully!\n");
-    printf("Testing post-paging functionality...\n");
+    printf("✅ All processes created. Starting scheduler...\n");
 
-    // 测试：启用分页后仍能输出
-    printf("Hello from virtual memory world!\n");
+    // ✅ 启动调度器（永不返回）
+    scheduler();
 
-
-
-    while(1); // 死循环
-    return 0; // 满足编译器要求
+    // 不可达
+    return 0;
 }
+
+
