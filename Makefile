@@ -14,8 +14,12 @@ OBJS = kernel/entry.o kernel/main.o kernel/uart.o kernel/printf.o kernel/console
        kernel/mm/pmm.o kernel/mm/vm.o  \
        kernel/trap/trap.o kernel/trap/trapvec.o \
        kernel/proc/proc.o kernel/proc/swtch.o \
-       kernel/syscall.o user/usys.o
+       kernel/syscall.o user/usys.o \
+       kernel/string.o
 
+
+kernel/string.o: kernel/string.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 kernel.elf: $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)

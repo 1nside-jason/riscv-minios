@@ -1,13 +1,17 @@
 void uart_puts(char *s);
 // kernel/main.c
+#include "proc/proc.h"
 #include "printf.h"
 #include "console.h"  // ✅ 必须包含！否则不认识 clear_screen, goto_xy 等
 #include "uart.h"
 #include "mm/pmm.h"
 #include "mm/vm.h"
-#include <assert.h>
 #include "trap/trap.h"
-#include "proc/proc.h"
+#include <assert.h>
+#include <string.h>
+_Static_assert(1, "proc.h included successfully");
+
+
 
 // 测试任务1
 void task1(void) {
@@ -119,6 +123,43 @@ void user_task(void) {
     exit(0);
 }
 
+
+// 临时：手动声明系统调用桩函数（绕过头文件）
+extern int open(const char *path, int flags);
+extern int close(int fd);
+extern int read(int fd, void *buf, int count);
+extern int unlink(const char *path);
+void fs_test_task(void) {
+    extern int open(const char *path,int flags);
+    
+	printf("Starting filesystem test...\n");
+
+    // 创建并写入文件
+    int fd = open("/test.txt", 1);  // O_CREATE
+    if (fd < 0) {
+        printf("open failed!\n");
+        exit(1);
+    }
+
+    char msg[] = "Hello from RAMFS!\n";
+    int n = write(fd, msg, strlen(msg));
+    printf("Wrote %d bytes\n", n);
+    close(fd);
+
+    // 重新打开并读取
+    fd = open("/test.txt", 0);  // O_RDONLY
+    char buf[64];
+    n = read(fd, buf, sizeof(buf)-1);
+    buf[n] = '\0';
+    printf("Read: %s", buf);
+    close(fd);
+
+    // 删除文件
+    unlink("/test.txt");
+    printf("Filesystem test completed.\n");
+    exit(0);
+}
+
 int main() {
     uart_init();
     clear_screen();
@@ -160,6 +201,7 @@ int main() {
     
 
     create_process(user_task);  // 创建用户态任务
+    create_process(fs_test_task);
 
     printf("✅ All processes created. Starting scheduler...\n");
 

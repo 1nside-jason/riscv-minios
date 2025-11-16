@@ -3,6 +3,7 @@
 #define __RISCV_H__
 
 #include <stdint.h>
+#include <stddef.h>
 
 // 页大小 4KB
 #define PGSIZE 4096
