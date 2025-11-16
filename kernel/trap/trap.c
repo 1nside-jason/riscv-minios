@@ -3,6 +3,8 @@
 #include "printf.h"
 #include "trap/trap.h"
 #include "proc/proc.h"
+#include "syscall.h"
+
 
 // 全局变量：记录时钟中断次数
 volatile int timer_ticks = 0;
@@ -30,25 +32,30 @@ void kerneltrap(void) {
     uint64_t sepc = r_sepc();
 
     if (scause == 5) {
+        // 时钟中断
         timer_ticks++;
         sbi_set_timer(r_time() + 1000000);
-
         if (timer_ticks % 10 == 0) {
-            // ✅ 修复：不能对三元表达式取地址，改用 if-else
-            struct context *old_ctx;
             if (current_proc) {
-                old_ctx = &current_proc->context;
-            } else {
-                old_ctx = &proc[0].context;  // idle context
+                swtch(&current_proc->context, &proc[0].context);
             }
-            swtch(old_ctx, &proc[0].context);  // 切换到调度器上下文
+        }
+    } else if (scause == 8) {
+        // 👉 系统调用
+        if (current_proc) {
+            // 保存 sepc 到 trapframe
+            current_proc->trapframe->epc = sepc;
+
+            // 👉 调用系统调用分发器
+            syscall_dispatch();
+
+            // 更新 sepc：跳过 ecall 指令
+            w_sepc(sepc + 4);
         }
     } else {
         printf("Unexpected trap: scause=0x%lx sepc=0x%lx\n", scause, sepc);
         while(1);
     }
-
-    w_sepc(sepc);
 }
 
 // 初始化中断系统

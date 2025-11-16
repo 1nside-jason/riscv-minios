@@ -109,6 +109,16 @@ void test_pagetable(void) {
     printf("✅ Page table test passed\n");
 }
 
+void user_task(void) {
+    int pid = getpid();
+    printf("Hello from user task! PID = %d\n", pid);
+
+    char msg[] = "This is a system call test!\n";
+    write(1, msg, sizeof(msg) - 1);
+
+    exit(0);
+}
+
 int main() {
     uart_init();
     clear_screen();
@@ -147,11 +157,21 @@ int main() {
     if (create_process(task3) <= 0) {
         printf("Failed to create task3\n");
     }
+    
+
+    create_process(user_task);  // 创建用户态任务
 
     printf("✅ All processes created. Starting scheduler...\n");
 
     // ✅ 启动调度器（永不返回）
     scheduler();
+    
+
+    
+int getpid(void);
+int write(int fd, const void *buf, int count);
+
+
 
     // 不可达
     return 0;
