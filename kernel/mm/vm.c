@@ -21,7 +21,9 @@ pagetable_t create_pagetable(void) {
 // 页表遍历（查找或创建）
 static pte_t* walk(pagetable_t pt, uint64_t va, int alloc) {
     for (int level = 2; level >= 0; level--) {
-        pte_t *pte = &pt[VPN_MASK(va, level)];
+        uint64_t vpn = VPN_MASK(va, level);
+        pte_t *pte = &pt[vpn];
+        
         if (*pte & PTE_V) {
             if (level == 0) return pte;  // 找到叶子
             pt = (pagetable_t)PTE2PPN(*pte);
@@ -32,15 +34,18 @@ static pte_t* walk(pagetable_t pt, uint64_t va, int alloc) {
             for (int i = 0; i < 512; i++) {
                 new_pt[i] = 0;
             }
-            *pte = PPN2PTE((uint64_t)new_pt) | PTE_V | PTE_R | PTE_W | PTE_X | PTE_U;
+            *pte = PPN2PTE((uint64_t)new_pt) | PTE_V;
             pt = new_pt;
         }
     }
-    return 0;
+    // 问题可能在这里：循环结束后没有返回有效的 pte
+    // 对于 level=0 的情况，即使创建了新页表项，也需要返回它
+    return &pt[VPN_MASK(va, 0)];  // 返回最后一级的 pte
 }
 
 // 映射一页：va → pa
 int map_page(pagetable_t pt, uint64_t va, uint64_t pa, int perm) {
+    printf("map_page: va=0x%lx, pa=0x%lx, perm=0x%x\n", va, pa, perm);
     if ((va % PGSIZE) != 0 || (pa % PGSIZE) != 0) {
         printf("map_page: addresses not aligned\n");
         return -1;
@@ -58,6 +63,7 @@ int map_page(pagetable_t pt, uint64_t va, uint64_t pa, int perm) {
     }
 
     *pte = PPN2PTE(pa) | perm | PTE_V;
+    printf("map_page: mapped successfully\n");
     return 0;
 }
 
@@ -111,10 +117,14 @@ void kvminit(void) {
 
     extern char etext[], end[];
 
-
     // 映射内核代码段（R+X）
     for (uint64_t va = KERNBASE; va < (uint64_t)etext; va += PGSIZE) {
         uint64_t pa = va;
+        // 添加地址对齐检查
+        if ((va % PGSIZE) != 0 || (pa % PGSIZE) != 0) {
+            printf("kvminit: code address not aligned: va=0x%lx, pa=0x%lx\n", va, pa);
+            continue;
+        }
         if (map_page(kernel_pagetable, va, pa, PTE_R | PTE_X) < 0) {
             printf("kvminit: failed to map code at 0x%lx\n", va);
             return;
@@ -122,8 +132,15 @@ void kvminit(void) {
     }
 
     // 映射内核数据段（R+W）
-    for (uint64_t va = (uint64_t)etext; va < (uint64_t)end; va += PGSIZE) {
+    // 修复：确保起始地址页对齐
+    uint64_t data_start = PGROUNDUP((uint64_t)etext);
+    for (uint64_t va = data_start; va < PGROUNDUP((uint64_t)end); va += PGSIZE) {
         uint64_t pa = va;
+        // 添加地址对齐检查
+        if ((va % PGSIZE) != 0 || (pa % PGSIZE) != 0) {
+            printf("kvminit: data address not aligned: va=0x%lx, pa=0x%lx\n", va, pa);
+            continue;
+        }
         if (map_page(kernel_pagetable, va, pa, PTE_R | PTE_W) < 0) {
             printf("kvminit: failed to map data at 0x%lx\n", va);
             return;
@@ -133,6 +150,11 @@ void kvminit(void) {
     // 映射栈空间（预留 4MB）
     for (uint64_t va = 0x87c00000; va < 0x88000000; va += PGSIZE) {
         uint64_t pa = va;
+        // 添加地址对齐检查
+        if ((va % PGSIZE) != 0 || (pa % PGSIZE) != 0) {
+            printf("kvminit: stack address not aligned: va=0x%lx, pa=0x%lx\n", va, pa);
+            continue;
+        }
         if (map_page(kernel_pagetable, va, pa, PTE_R | PTE_W) < 0) {
             printf("kvminit: failed to map stack at 0x%lx\n", va);
             return;
@@ -140,9 +162,14 @@ void kvminit(void) {
     }
 
     // 映射 UART 设备（R+W）
-    if (map_page(kernel_pagetable, UART0, UART0, PTE_R | PTE_W) < 0) {
-        printf("kvminit: failed to map UART\n");
-        return;
+    // 添加地址对齐检查
+    if ((UART0 % PGSIZE) != 0) {
+        printf("kvminit: UART address not aligned: 0x%lx\n", UART0);
+    } else {
+        if (map_page(kernel_pagetable, UART0, UART0, PTE_R | PTE_W) < 0) {
+            printf("kvminit: failed to map UART\n");
+            return;
+        }
     }
 
     printf("kvminit: kernel page table created successfully\n");

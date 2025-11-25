@@ -23,11 +23,15 @@ void pmm_init(void) {
 
     // 按页倒序插入空闲链表（简单实现）
     freelist = 0;
+    int page_count = 0;
     for (uint64_t p = stop - PGSIZE; p >= start; p -= PGSIZE) {
         struct run *r = (struct run *)p;
         r->next = freelist;
         freelist = r;
+        page_count++;
+        if (p == start) break; // 防止死循环
     }
+    printf("pmm_init: total pages = %d\n", page_count);
 }
 
 // 分配一页物理内存

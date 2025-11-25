@@ -1,4 +1,5 @@
 void uart_puts(char *s);
+
 // kernel/main.c
 #include "proc/proc.h"
 #include "printf.h"
@@ -10,7 +11,12 @@ void uart_puts(char *s);
 #include <assert.h>
 #include <string.h>
 _Static_assert(1, "proc.h included successfully");
-
+// 函数声明（前置声明）
+void task1(void);
+void task2(void);
+void task3(void);
+void user_task(void);        // ✅ 声明
+void fs_test_task(void);     // ✅ 声明
 
 
 // 测试任务1
@@ -97,10 +103,25 @@ void test_physical_memory(void) {
 void test_pagetable(void) {
     printf("\n=== Testing Page Table ===\n");
     pagetable_t pt = create_pagetable();
+    
+    if (pt == 0) {
+        printf("test_pagetable: failed to create page table\n");
+        while(1);
+    }
 
     uint64_t va = 0x1000000;
-    uint64_t pa = (uint64_t)alloc_page();
+    void *page = alloc_page();
+    
+    if (page == 0) {
+        printf("test_pagetable: failed to allocate physical page\n");
+        while(1);
+    }
+    
+    uint64_t pa = (uint64_t)page;
+    // 确保参数正确传递
+    printf("test_pagetable: va=0x%lx pa=0x%lx\n", va, pa);
 
+    // 修复 alloc 参数传递
     if (map_page(pt, va, pa, PTE_R | PTE_W) != 0) {
         printf("Assertion failed: map_page failed\n");
         while(1);
@@ -111,16 +132,6 @@ void test_pagetable(void) {
 
     destroy_pagetable(pt);
     printf("✅ Page table test passed\n");
-}
-
-void user_task(void) {
-    int pid = getpid();
-    printf("Hello from user task! PID = %d\n", pid);
-
-    char msg[] = "This is a system call test!\n";
-    write(1, msg, sizeof(msg) - 1);
-
-    exit(0);
 }
 
 
@@ -157,6 +168,17 @@ void fs_test_task(void) {
     // 删除文件
     unlink("/test.txt");
     printf("Filesystem test completed.\n");
+    exit(0);
+}
+
+// ========== 用户态任务：测试系统调用 ==========
+void user_task(void) {
+    int pid = getpid();
+    printf("Hello from user task! PID = %d\n", pid);
+
+    char msg[] = "This is a system call test!\n";
+    write(1, msg, sizeof(msg) - 1);
+
     exit(0);
 }
 
